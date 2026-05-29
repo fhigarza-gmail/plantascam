@@ -47,7 +47,7 @@ El campo estado_salud debe ser exactamente uno de: saludable, necesita_atención
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: mediaType || 'image/jpeg',
+               media_type: (['image/jpeg','image/png','image/gif','image/webp'].includes(mediaType) ? mediaType : 'image/jpeg'),
                 data: imageBase64
               }
             },

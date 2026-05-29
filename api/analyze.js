@@ -11,8 +11,18 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key no configurada en el servidor' });
+    return res.status(500).json({ error: 'API key no configurada' });
   }
+
+  // Limpiar base64: quitar prefijo data:... si viene incluido
+  let cleanBase64 = imageBase64;
+  if (cleanBase64.includes(',')) {
+    cleanBase64 = cleanBase64.split(',')[1];
+  }
+
+  // Validar mediaType
+  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const safeMediaType = validTypes.includes(mediaType) ? mediaType : 'image/jpeg';
 
   const prompt = `Analiza esta imagen de una planta y responde SOLO con un objeto JSON con esta estructura exacta, sin texto adicional ni backticks:
 {
@@ -47,8 +57,8 @@ El campo estado_salud debe ser exactamente uno de: saludable, necesita_atención
               type: 'image',
               source: {
                 type: 'base64',
-               media_type: (['image/jpeg','image/png','image/gif','image/webp'].includes(mediaType) ? mediaType : 'image/jpeg'),
-                data: imageBase64
+                media_type: safeMediaType,
+                data: cleanBase64
               }
             },
             { type: 'text', text: prompt }

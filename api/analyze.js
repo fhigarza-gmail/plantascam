@@ -38,7 +38,7 @@ El campo estado_salud debe ser exactamente uno de: saludable, necesita_atención
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+       model: 'google/gemini-2.5-flash:free',
         messages: [{
           role: 'user',
           content: [

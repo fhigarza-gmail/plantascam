@@ -4,23 +4,14 @@ export default async function handler(req, res) {
   }
 
   const { imageBase64, mediaType } = req.body;
+  if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'imageBase64 requerido' });
-  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'API key no configurada' });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'API key no configurada' });
-  }
-
-  // Limpiar base64: quitar prefijo data:... si viene incluido
   let cleanBase64 = imageBase64;
-  if (cleanBase64.includes(',')) {
-    cleanBase64 = cleanBase64.split(',')[1];
-  }
+  if (cleanBase64.includes(',')) cleanBase64 = cleanBase64.split(',')[1];
 
-  // Validar mediaType
   const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   const safeMediaType = validTypes.includes(mediaType) ? mediaType : 'image/jpeg';
 
@@ -40,43 +31,28 @@ export default async function handler(req, res) {
 El campo estado_salud debe ser exactamente uno de: saludable, necesita_atención, enferma`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: safeMediaType,
-                data: cleanBase64
-              }
-            },
-            { type: 'text', text: prompt }
-          ]
-        }]
-      })
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: safeMediaType, data: cleanBase64 } },
+              { text: prompt }
+            ]
+          }]
+        })
+      }
+    );
 
     const data = await response.json();
+    if (!response.ok) return res.status(response.status).json({ error: data.error?.message || 'Error API Gemini' });
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.error?.message || 'Error API Anthropic' });
-    }
-
-    const text = data.content[0].text;
+    const text = data.candidates[0].content.parts[0].text;
     const clean = text.replace(/```json|```/g, '').trim();
     const plant = JSON.parse(clean);
-
     return res.status(200).json(plant);
 
   } catch (err) {

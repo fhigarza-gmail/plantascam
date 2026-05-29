@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   const { imageBase64, mediaType } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key no configurada' });
 
   let cleanBase64 = imageBase64;
@@ -31,26 +31,28 @@ export default async function handler(req, res) {
 El campo estado_salud debe ser exactamente uno de: saludable, necesita_atención, enferma`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: safeMediaType, data: cleanBase64 } },
-              { text: prompt }
-            ]
-          }]
-        })
-      }
-    );
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${safeMediaType};base64,${cleanBase64}` } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error?.message || 'Error API Gemini' });
+    if (!response.ok) return res.status(response.status).json({ error: data.error?.message || 'Error OpenRouter' });
 
-    const text = data.candidates[0].content.parts[0].text;
+    const text = data.choices[0].message.content;
     const clean = text.replace(/```json|```/g, '').trim();
     const plant = JSON.parse(clean);
     return res.status(200).json(plant);
